@@ -185,6 +185,7 @@ namespace GHelper.Input
                 hook.RegisterHotKey(ModifierKeys.Shift, Keys.VolumeDown);
                 hook.RegisterHotKey(ModifierKeys.Shift, Keys.VolumeUp);
                 hook.RegisterHotKey(keyModifier, Keys.F20);
+                hook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Alt, Keys.L);
             }
 
             if (keyOverlay != Keys.None) hook.RegisterHotKey(keyModifierAlt, keyOverlay);
@@ -346,6 +347,12 @@ namespace GHelper.Input
                     LaunchProcess(command);
                     return;
                 }
+            }
+
+            if (e.Modifier == (ModifierKeys.Control | ModifierKeys.Alt) && e.Key == Keys.L)
+            {
+                ToggleFnLock();
+                return;
             }
 
             if (e.Modifier == ModifierKeys.None)
