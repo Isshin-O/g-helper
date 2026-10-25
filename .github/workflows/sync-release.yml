@@ -21,6 +21,9 @@ jobs:
   sync-release:
     if: github.repository == 'Isshin-O/g-helper'
     runs-on: windows-2022
+    env:
+      # 有 upstream 远程时 gh 会默认操作 seerge/g-helper，必须显式指定
+      GH_REPO: ${{ github.repository }}
     steps:
     - uses: actions/checkout@v7
       with:
