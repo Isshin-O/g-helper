@@ -634,6 +634,11 @@ namespace GHelper.Input
                     action = "calculator";
             }
 
+            RunAction(action, name);
+        }
+
+        public static void RunAction(string action, string name = "")
+        {
             switch (action)
             {
                 case "mute":

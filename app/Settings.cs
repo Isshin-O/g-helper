@@ -1386,6 +1386,8 @@ namespace GHelper
             Program.toast.RunToast(comboKeyboard.GetItemText(comboKeyboard.SelectedItem), ToastIcon.BacklightUp);
         }
 
+        public void SetAuraMode(int mode) => comboKeyboard.SelectedValue = (AuraMode)mode;
+
         private void ComboKeyboard_SelectedValueChanged(object? sender, EventArgs e)
         {
             AppConfig.Set("aura_mode", (int)comboKeyboard.SelectedValue);
