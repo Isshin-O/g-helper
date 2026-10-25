@@ -293,6 +293,8 @@ namespace GHelper
 
             VisualiseFnLock();
             buttonFnLock.Click += ButtonFnLock_Click;
+            if (AppConfig.GetString("fnc", "").Length <= 1 || AppConfig.GetString("fnc") == "fnlock")
+                toolTip.SetToolTip(buttonFnLock, InputDispatcher.FnLockHotkeyName());
 
             labelVisual.Click += LabelVisual_Click;
             labelCharge.Click += LabelCharge_Click;

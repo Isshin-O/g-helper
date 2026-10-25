@@ -319,6 +319,13 @@ namespace GHelper
                 SetKeyCombo(comboFNF4, textFNF4, "fnf4");
 
                 SetKeyCombo(comboFNC, textFNC, "fnc");
+                string fnLockKey = InputDispatcher.FnLockHotkeyName();
+                if (fnLockKey.Length > 0)
+                {
+                    // 第一列只有 20% 宽，放不下 "FN+C / Shift+Esc"，完整说明放进悬停提示
+                    labelFNC.Text = fnLockKey + ":";
+                    toolTip.SetToolTip(labelFNC, $"FN+C / {fnLockKey}");
+                }
                 SetKeyCombo(comboFNV, textFNV, "fnv");
                 SetKeyCombo(comboFNE, textFNE, "fne");
             }

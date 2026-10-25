@@ -34,11 +34,14 @@ namespace GHelper.Input
         public static Keys keyProfile4 = (Keys)AppConfig.Get("keybind_profile_4", (int)Keys.F20);
         public static Keys keyXGM = (Keys)AppConfig.Get("keybind_xgm", (int)Keys.F21);
         public static Keys keyOverlay = (Keys)AppConfig.Get("keybind_overlay", (int)Keys.O);
+        // 软件 FnLock 快捷键（部分机型 Fn+C / Fn+Esc 不发事件），执行 Fn+C 那一栏的动作；keybind_fnlock = 0 关闭
+        public static Keys keyFnLock = (Keys)AppConfig.Get("keybind_fnlock", (int)Keys.Escape);
 
         public static ModifierKeys keyModifier = GetModifierKeys("modifier_keybind", ModifierKeys.Shift | ModifierKeys.Control);
         public static ModifierKeys keyModifierAlt = GetModifierKeys("modifier_keybind_alt", ModifierKeys.Shift | ModifierKeys.Control | ModifierKeys.Alt);
+        public static ModifierKeys keyModifierFnLock = GetModifierKeys("modifier_keybind_fnlock", ModifierKeys.Shift);
 
-        static ModeControl modeControl = Program.modeControl;
+        static ModeControl modeControl => Program.modeControl;
 
         static bool isTUF = AppConfig.IsTUF();
 
@@ -185,7 +188,7 @@ namespace GHelper.Input
                 hook.RegisterHotKey(ModifierKeys.Shift, Keys.VolumeDown);
                 hook.RegisterHotKey(ModifierKeys.Shift, Keys.VolumeUp);
                 hook.RegisterHotKey(keyModifier, Keys.F20);
-                hook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Alt, Keys.L);
+                if (keyFnLock != Keys.None) hook.RegisterHotKey(keyModifierFnLock, keyFnLock);
             }
 
             if (keyOverlay != Keys.None) hook.RegisterHotKey(keyModifierAlt, keyOverlay);
@@ -349,9 +352,9 @@ namespace GHelper.Input
                 }
             }
 
-            if (e.Modifier == (ModifierKeys.Control | ModifierKeys.Alt) && e.Key == Keys.L)
+            if (keyFnLock != Keys.None && e.Modifier == keyModifierFnLock && e.Key == keyFnLock)
             {
-                ToggleFnLock();
+                KeyProcess("fnc");
                 return;
             }
 
@@ -842,6 +845,13 @@ namespace GHelper.Input
         {
             Program.acpi.DeviceSet(AsusACPI.FnLock, fnLock ^ AppConfig.IsInvertedFNLock() ? 1 : 0, "FnLock");
             AsusHid.WriteInput([AsusHid.INPUT_ID, 0xD0, 0x4E, fnLock ? (byte)0x00 : (byte)0x01], "USB FnLock");
+        }
+
+        public static string FnLockHotkeyName()
+        {
+            if (keyFnLock == Keys.None) return "";
+            string mods = keyModifierFnLock == ModifierKeys.None ? "" : keyModifierFnLock.ToString().Replace("Control", "Ctrl").Replace(", ", "+") + "+";
+            return mods + (keyFnLock == Keys.Escape ? "Esc" : keyFnLock.ToString());
         }
 
         public static void ToggleFnLock()

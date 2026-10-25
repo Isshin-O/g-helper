@@ -336,6 +336,7 @@ namespace GHelper.Helpers
                 },
                 keyboard = new
                 {
+                    fnLock = AppConfig.Is("fn_lock"),
                     backlight = InputDispatcher.GetBacklight(),
                     maxBacklight = AppConfig.Get("max_brightness", 3),
                     aura = (int)Aura.Mode,
