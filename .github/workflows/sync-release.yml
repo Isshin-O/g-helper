@@ -1,0 +1,82 @@
+name: Sync upstream and release
+
+# Fork 专用：每天合并 seerge/g-helper 的 main，编译通过后推送；
+# 上游版本号变化（或手动勾选 release）时发布 v<上游版本>.<N>，供内置更新器下载
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish a new release even if the upstream version did not change'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency: sync-release
+
+jobs:
+  sync-release:
+    if: github.repository == 'Isshin-O/g-helper'
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Merge upstream
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git remote add upstream https://github.com/seerge/g-helper.git
+        git fetch upstream main
+        if ($LASTEXITCODE -ne 0) { throw "Fetch upstream failed" }
+        git merge --no-edit upstream/main
+        if ($LASTEXITCODE -ne 0) { throw "Merge conflict with upstream: merge it locally and push" }
+
+    - name: Decide version
+      id: version
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $base = @(([xml](Get-Content app/GHelper.csproj)).Project.PropertyGroup.AssemblyVersion | Where-Object { $_ })[0]
+        $tags = gh release list --limit 100 --json tagName --jq '.[].tagName'
+        if ($LASTEXITCODE -ne 0) { throw "Can't list releases" }
+        $n = 0
+        foreach ($t in $tags) { if ($t -match "^v$([regex]::Escape($base))\.(\d+)$") { $n = [Math]::Max($n, [int]$Matches[1]) } }
+        $release = ($n -eq 0) -or ('${{ inputs.release }}' -eq 'true')
+        $version = "$base.$($n + 1)"
+        Write-Host "Upstream $base, last fork build $n, release=$release, version=$version"
+        "base=$base" >> $env:GITHUB_OUTPUT
+        "version=$version" >> $env:GITHUB_OUTPUT
+        "release=$($release.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Publish
+      run: |
+        dotnet publish app/GHelper.sln --configuration Release --runtime win-x64 -p:PublishSingleFile=true --no-self-contained -p:AssemblyVersion=${{ steps.version.outputs.version }}
+        if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+
+    # 编译通过才推送；上游若改了 .github/workflows，GITHUB_TOKEN 无权推送，需在本地合并后推送
+    - name: Push merged main
+      run: |
+        git push origin HEAD:main
+        if ($LASTEXITCODE -ne 0) { throw "Push failed" }
+
+    - name: Release
+      if: steps.version.outputs.release == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $v = "${{ steps.version.outputs.version }}"
+        $dir = "app/bin/x64/Release/net10.0-windows/win-x64/publish"
+        Compress-Archive "$dir/GHelper.exe" "$dir/GHelper.zip" -Force
+        $notes = "Fork build of seerge/g-helper v${{ steps.version.outputs.base }} with local changes (localhost API, configurable FnLock hotkey). Unsigned."
+        gh release create "v$v" "$dir/GHelper.exe" "$dir/GHelper.zip" --target (git rev-parse HEAD) --title "GHelper v$v" --notes $notes
+        if ($LASTEXITCODE -ne 0) { throw "Release failed" }

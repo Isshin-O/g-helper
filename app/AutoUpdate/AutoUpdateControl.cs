@@ -12,7 +12,10 @@ namespace GHelper.AutoUpdate
 
         SettingsForm settings;
 
-        public string versionUrl = "https://github.com/seerge/g-helper/releases";
+        // fork 构建从自己的 Release 更新，避免被官方版覆盖；config "update_repo" 可改回 seerge/g-helper
+        static readonly string repo = AppConfig.GetString("update_repo", "Isshin-O/g-helper");
+
+        public string versionUrl = $"https://github.com/{repo}/releases";
         public bool update = false;
 
         static long lastUpdate;
@@ -74,7 +77,7 @@ namespace GHelper.AutoUpdate
                 using (var httpClient = new HttpClient())
                 {
                     httpClient.DefaultRequestHeaders.Add("User-Agent", "G-Helper App");
-                    var json = await httpClient.GetStringAsync("https://api.github.com/repos/seerge/g-helper/releases/latest");
+                    var json = await httpClient.GetStringAsync($"https://api.github.com/repos/{repo}/releases/latest");
                     var config = JsonSerializer.Deserialize<JsonElement>(json);
                     var tag = config.GetProperty("tag_name").ToString().Replace("v", "");
                     var assets = config.GetProperty("assets");
