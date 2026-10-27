@@ -786,7 +786,7 @@ namespace GHelper
                             break;
                         case 1:
                             Logger.WriteLine("Lid Open");
-                            Task.Delay(1000).ContinueWith(_ => InputDispatcher.InitFNLock());
+                            InputDispatcher.InitFNLock();
                             InputDispatcher.lidClose = AniMatrixControl.lidClose = false;
                             Aura.ApplyBrightness(InputDispatcher.GetBacklight(), "Lid");
                             matrixControl.SetLidMode();
@@ -814,6 +814,7 @@ namespace GHelper
                             GPUModeControl.suspended = false;
                             Thread.Sleep(1000);
                             if (!Program.SetAutoModes(wakeup: true)) BatteryControl.AutoBattery();
+                            Task.Delay(2000).ContinueWith(_ => InputDispatcher.InitFNLock());
                             Program.hardwareOverlay?.ResumeForDisplayOn();
                             break;
                         case 2:
