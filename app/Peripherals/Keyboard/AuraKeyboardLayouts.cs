@@ -373,17 +373,69 @@ namespace GHelper.Peripherals.Keyboard
 
         private const int LAMP_ROW_SPREAD_UM = 6000;
         private const int LAMP_PITCH_UM = 19000;
+        private static readonly HashSet<int> WideKeys = new() { 0x28, 0x2A, 0x2B, 0x2C, 0x31, 0x39, 0xE0, 0xE1, 0xE5 };
 
-        public static (List<KeyDef[]> Rows, int[] Targets) FromLamps((int X, int Y, int Usage, bool Key)[] lamps)
+        public static (List<KeyDef[]> Rows, int[] Targets)? MapLamps(LayoutData layout, (int X, int Y, int Usage, int Purpose)[] lamps)
+        {
+            var all = Enumerable.Range(0, lamps.Length).ToList();
+            bool IsKey(int i) => (lamps[i].Purpose & 0x01) != 0;
+            bool IsLogo(int i) => !IsKey(i) && (lamps[i].Purpose & 0x04) != 0;
+
+            var byName = all.Where(i => IsKey(i) && UsageName(lamps[i].Usage) != "").GroupBy(i => UsageName(lamps[i].Usage)).ToDictionary(g => g.Key, g => g.First());
+            if (byName.Count == 0) return null;
+
+            var keyRows = new List<List<int>>();
+            foreach (int i in all.Where(IsKey).OrderBy(i => lamps[i].Y))
+            {
+                if (keyRows.Count == 0 || lamps[i].Y - lamps[keyRows[^1][0]].Y > LAMP_ROW_SPREAD_UM) keyRows.Add(new List<int>());
+                keyRows[^1].Add(i);
+            }
+            var blanks = keyRows.Select(r => new Queue<int>(r.Where(i => lamps[i].Usage == 0).OrderBy(i => lamps[i].X))).ToList();
+
+            int keyTop = lamps[keyRows[0][0]].Y;
+            double mid = (lamps.Min(l => l.X) + lamps.Max(l => l.X)) / 2.0;
+            var bars = all.Where(i => !IsKey(i) && !IsLogo(i)).ToList();
+            var front = bars.Where(i => lamps[i].Y >= keyTop).OrderBy(i => lamps[i].X).ThenBy(i => lamps[i].X < mid ? lamps[i].Y : -lamps[i].Y).ToList();
+            var rear = bars.Where(i => lamps[i].Y < keyTop).OrderBy(i => lamps[i].X).ToList();
+            var logo = all.Where(IsLogo).ToList();
+
+            float width = layout.Rows.Max(r => r.Sum(d => d.Gap + d.Width));
+            var rows = new List<KeyDef[]>();
+            var targets = new List<int>();
+            if (rear.Count > 0) rows.Add(rear.Select(_ => new KeyDef("", width / rear.Count, 0, 0.5f)).ToArray());
+            targets.AddRange(rear);
+
+            var table = layout.Rows.ToList();
+            float firstWidth = table[0].Sum(d => d.Gap + d.Width);
+            table[0] = table[0].Select(d => d with { Top = d.Top + 0.15f })
+                .Concat(logo.Select((_, k) => new KeyDef("Logo", 1, k == 0 ? width - firstWidth - logo.Count : 0, 0.5f, 0.15f))).ToArray();
+            var logos = new Queue<int>(logo);
+
+            int row = 0, bar = 0, barCount = layout.Rows.Sum(r => r.Count(d => d.Name == "Lightbar"));
+            foreach (var defs in table)
+            {
+                var queue = defs.All(d => d.Name == "Lightbar") ? null : blanks.ElementAtOrDefault(row++);
+                foreach (var def in defs)
+                {
+                    if (def.Name == "Lightbar") targets.Add(front.Count > 0 ? front[bar++ * front.Count / barCount] : int.MaxValue);
+                    else if (def.Name == "Logo") targets.Add(logos.Dequeue());
+                    else if (byName.TryGetValue(def.Name, out int i)) targets.Add(i);
+                    else targets.Add(queue?.Count > 0 ? queue.Dequeue() : int.MaxValue);
+                }
+                rows.Add(defs);
+            }
+            return (rows, targets.ToArray());
+        }
+
+        public static (List<KeyDef[]> Rows, int[] Targets) FromLamps((int X, int Y, int Usage, int Purpose)[] lamps)
         {
             var groups = new List<List<int>>();
-            foreach (int i in Enumerable.Range(0, lamps.Length).Where(i => lamps[i].Key).OrderBy(i => lamps[i].Y))
+            foreach (int i in Enumerable.Range(0, lamps.Length).OrderBy(i => lamps[i].Y))
             {
                 if (groups.Count == 0 || lamps[i].Y - lamps[groups[^1][0]].Y > LAMP_ROW_SPREAD_UM) groups.Add(new List<int>());
                 groups[^1].Add(i);
             }
-            groups.Add(Enumerable.Range(0, lamps.Length).Where(i => !lamps[i].Key).ToList());
-            groups = groups.Where(g => g.Count > 0).Select(g => g.OrderBy(i => lamps[i].X).ToList()).ToList();
+            groups = groups.Select(g => g.OrderBy(i => lamps[i].X).ToList()).ToList();
 
             var deltas = groups.SelectMany(g => g.Zip(g.Skip(1), (a, b) => lamps[b].X - lamps[a].X)).Where(d => d > 0).Order().ToList();
             double pitch = deltas.Count > 0 ? deltas[deltas.Count / 2] : LAMP_PITCH_UM;
@@ -398,8 +450,14 @@ namespace GHelper.Peripherals.Keyboard
                 for (int k = 0; k < group.Count; k++)
                 {
                     var lamp = lamps[group[k]];
-                    double left = (lamp.X - minX) / pitch;
-                    double width = k + 1 < group.Count ? Math.Clamp((lamps[group[k + 1]].X - lamp.X) / pitch, 0.5, 1) : 1;
+                    double width = group.Count < 2 ? 1 : Math.Clamp(Math.Abs(lamps[group[k + 1 < group.Count ? k + 1 : k - 1]].X - lamp.X) / pitch, 0.5, 1);
+                    if (WideKeys.Contains(lamp.Usage) && group.Count > 1)
+                    {
+                        int prev = k > 0 ? lamps[group[k - 1]].X : 2 * lamp.X - lamps[group[k + 1]].X;
+                        int next = k + 1 < group.Count ? lamps[group[k + 1]].X : 2 * lamp.X - prev;
+                        width = Math.Max(1, (next - prev) / pitch - 1);
+                    }
+                    double left = (lamp.X - minX) / pitch + 0.5 - width / 2;
                     double gap = left - right < 0.1 ? 0 : left - right;
                     row[k] = new KeyDef(UsageName(lamp.Usage), (float)width, (float)gap);
                     right += gap + width;
