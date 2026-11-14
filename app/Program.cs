@@ -505,6 +505,7 @@ namespace GHelper
                     if (acpi.IsConnected()) acpi.DeviceSet(AsusACPI.BatteryLimit, limit, "Limit");
                     else AsusACPI.DeviceSetWmi(AsusACPI.BatteryLimit, limit);
                 }
+                if (acpi.IsConnected()) Logger.WriteLine("Startup Eco flag : " + acpi.DeviceGet(AsusACPI.GPUEco));
             }
             catch (Exception ex)
             {
