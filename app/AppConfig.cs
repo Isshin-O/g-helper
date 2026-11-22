@@ -487,6 +487,11 @@ public static class AppConfig
         return ContainsModel("FA617") || ContainsModel("FX507") || ContainsModel("FA507") || ContainsModel("FA401");
     }
 
+    public static bool IsNoBacklightSave()
+    {
+        return ContainsModel("FA401K");
+    }
+
     public static bool IsAnimeMatrix()
     {
         return ContainsModel("GA401") || ContainsModel("GA402") || ContainsModel("GU604V") || ContainsModel("GU604V") || ContainsModel("G835") || ContainsModel("G815") || ContainsModel("G635") || ContainsModel("G615");
@@ -634,7 +639,7 @@ public static class AppConfig
 
     public static bool DynamicBoost15()
     {
-        return ContainsModel("FX507ZC4") || ContainsModel("GA403UM") || ContainsModel("GU605CP") || ContainsModel("FX608J") || ContainsModel("FX608L") || ContainsModel("FA608U") || ContainsModel("FA608P") ||
+        return ContainsModel("FX507ZC4") || ContainsModel("GA403UM") || ContainsModel("GA403UH") || ContainsModel("GU605CP") || ContainsModel("FX608J") || ContainsModel("FX608L") || ContainsModel("FA608U") || ContainsModel("FA608P") ||
         ContainsModel("FA401K") || ContainsModel("FA401UM") || ContainsModel("FA401UH") ||
         ContainsModel("GA403GM") || ContainsModel("GU405AM") || ContainsModel("GU405AP") || ContainsModel("GU606AM") || ContainsModel("GU606AP");
     }
